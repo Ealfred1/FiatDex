@@ -13,14 +13,18 @@ class PriceService:
         limit: int = 50,
         offset: int = 0,
         search: str | None = None,
-        local_currency: str = "USD"
+        local_currency: str = "USD",
+        currency: str | None = None
     ) -> TokenFeedResponse:
         """
         Primary endpoint data builder.
         Enriches market summaries with metadata and converts to local currency.
         """
+        # Use currency if provided, otherwise local_currency
+        target_currency = currency or local_currency
+        
         # Cache key includes search and local_currency for granularity
-        cache_key = f"token_feed:{sort_by}:{search}:{local_currency}"
+        cache_key = f"token_feed:{sort_by}:{search}:{target_currency}"
         cached = await redis_client.get_cache(cache_key)
         if cached:
             return TokenFeedResponse(**cached)

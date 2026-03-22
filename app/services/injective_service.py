@@ -14,80 +14,82 @@ from app.core.redis_client import redis_client
 
 class InjectiveService:
     def __init__(self):
-        self.network = InjectiveNetwork.testnet() if settings.INJECTIVE_NETWORK == "testnet" else InjectiveNetwork.mainnet()
-        self.client = AsyncClient(self.network)
-        # LCD client for some REST endpoints
+        self._network = None
+        self._client = None
         self.lcd_url = settings.INJECTIVE_LCD_ENDPOINT
+        self.exchange_api_url = "https://api.helixapp.com" if settings.INJECTIVE_NETWORK == "mainnet" else "https://testnet.api.helixapp.com"
+
+    @property
+    def network(self):
+        if self._network is None:
+            self._network = InjectiveNetwork.testnet() if settings.INJECTIVE_NETWORK == "testnet" else InjectiveNetwork.mainnet()
+        return self._network
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = AsyncClient(self.network)
+        return self._client
 
     async def get_all_spot_markets(self) -> List[Any]:
-        """
-        Fetch all active spot markets from Injective Exchange API.
-        Cache result for 60 seconds in Redis.
-        """
         cache_key = "spot_markets"
         cached = await redis_client.get_cache(cache_key)
         if cached:
             return cached
 
-        # Using Exchange gRPC via AsyncClient
+        # Ensure client is initialized in the current loop
         markets = await self.client.get_spot_markets(status="active")
-        # In a real scenario, we'd parse the gRPC response into a list of dicts/objects
-        # For this implementation, we'll assume the response is serializable or we'd map it.
-        # Simplified for now:
         market_list = []
-        for m in markets.markets:
-            market_list.append({
-                "market_id": m.market_id,
-                "base_denom": m.base_denom,
-                "quote_denom": m.quote_denom,
-                "ticker": m.ticker,
-                "status": m.status,
-                "min_price_tick_size": float(m.min_price_tick_size),
-                "min_quantity_tick_size": float(m.min_quantity_tick_size)
-            })
+        if hasattr(markets, 'markets'):
+            for m in markets.markets:
+                market_list.append({
+                    "market_id": m.market_id,
+                    "base_denom": m.base_denom,
+                    "quote_denom": m.quote_denom,
+                    "ticker": m.ticker,
+                    "status": m.status,
+                    "min_price_tick_size": float(m.min_price_tick_size),
+                    "min_quantity_tick_size": float(m.min_quantity_tick_size)
+                })
 
         await redis_client.set_cache(cache_key, market_list, ttl=60)
         return market_list
 
+    async def get_spot_market(self, market_id: str) -> Optional[dict]:
+        markets = await self.get_all_spot_markets()
+        return next((m for m in markets if m["market_id"] == market_id), None)
+
+    async def get_spot_market_summary(self, market_id: str) -> Optional[MarketSummary]:
+        summaries = await self.get_all_market_summaries()
+        return next((s for s in summaries if s.market_id == market_id), None)
+
     async def get_all_market_summaries(self) -> List[MarketSummary]:
-        """
-        Batch fetch summaries for all markets in one call.
-        Cache for 10 seconds in Redis (key: "market_summaries").
-        """
         cache_key = "market_summaries"
         cached = await redis_client.get_cache(cache_key)
         if cached:
             return [MarketSummary(**m) for m in cached]
 
-        # Injective doesn't have a single "all summaries" gRPC call in basic client usually, 
-        # but Helix API or a specific Exchange REST endpoint does.
-        # We'll use the Helix-like endpoint if available, otherwise iterate.
-        # Following the prompt: GET /api/v1/spot/market_summary
         async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{self.network.exchange_endpoint}/api/v1/spot/market_summary")
+            resp = await client.get(f"{self.exchange_api_url}/api/v1/spot/market_summary")
             data = resp.json()
+            items = data.get("data", data) if isinstance(data, dict) else data
             
             summaries = []
-            for item in data:
+            for item in items:
                 summaries.append(MarketSummary(
-                    market_id=item["marketId"],
-                    price=Decimal(item["lastPrice"]),
-                    volume=Decimal(item["volume"]),
-                    high=Decimal(item["high"]),
-                    low=Decimal(item["low"]),
-                    change=float(item["priceChange"]),
-                    last_price=Decimal(item["lastPrice"])
+                    market_id=item.get("marketId", item.get("market_id")),
+                    price=Decimal(str(item.get("lastPrice", item.get("last_price", 0)))),
+                    volume=Decimal(str(item.get("volume", 0))),
+                    high=Decimal(str(item.get("high", 0))),
+                    low=Decimal(str(item.get("low", 0))),
+                    change=float(item.get("priceChange", item.get("change", 0))),
+                    last_price=Decimal(str(item.get("lastPrice", item.get("last_price", 0))))
                 ))
             
             await redis_client.set_cache(cache_key, [s.model_dump() for s in summaries], ttl=10)
             return summaries
 
     async def get_wallet_balances(self, injective_address: str) -> List[TokenBalance]:
-        """
-        Fetch all token balances for a wallet address.
-        Uses Bank module: GET /cosmos/bank/v1beta1/balances/{address}
-        Enrich each balance with token metadata.
-        """
         url = f"{self.lcd_url}/cosmos/bank/v1beta1/balances/{injective_address}"
         async with httpx.AsyncClient() as client:
             resp = await client.get(url)
@@ -100,40 +102,31 @@ class InjectiveService:
                 
                 meta = await self.get_token_metadata(denom)
                 if meta:
-                    # Convert to human readable amount
                     readable_amount = amount / Decimal(10**meta.decimals)
-                    # For balance_usd, we'd multiply by price from PriceService
-                    # But InjectiveService is low-level, so we'll leave balance_usd to PriceService or caller
                     balances.append(TokenBalance(
                         denom=denom,
                         symbol=meta.symbol,
                         name=meta.name,
                         logo_url=meta.logo_url,
                         balance=readable_amount,
-                        balance_usd=Decimal(0), # To be filled by caller
+                        balance_usd=Decimal(0),
                         decimals=meta.decimals
                     ))
             return balances
 
     async def get_token_metadata(self, denom: str) -> Optional[TokenMeta]:
-        """
-        Get token metadata (name, symbol, decimals, logo_url) for a denom.
-        Cache per denom for 1 hour.
-        """
         cache_key = f"token_meta:{denom}"
         cached = await redis_client.get_cache(cache_key)
         if cached:
             return TokenMeta(**cached)
 
-        # Fallback to hardcoded or common registry if registry API lookup fails
-        # In productive version, use Injective token registry (GitHub or Helix API)
         async with httpx.AsyncClient() as client:
-            # Helix API example
             resp = await client.get(f"https://api.helixapp.com/api/v1/tokens?denom={denom}")
             if resp.status_code == 200:
                 data = resp.json()
-                if data.get("tokens"):
-                    t = data["tokens"][0]
+                items = data.get("tokens", data.get("data", []))
+                if items:
+                    t = items[0]
                     meta = TokenMeta(
                         name=t["name"],
                         symbol=t["symbol"],
@@ -153,20 +146,6 @@ class InjectiveService:
         price: Decimal,
         slippage_tolerance: float,
     ) -> dict:
-        """
-        Execute a market buy order on Injective spot DEX.
-        """
-        # Note: Implementation would involve using Transaction object and signing
-        # with private key. This is a simplified placeholder structure.
-        # In a real environment, we'd use:
-        # composer = Composer(network=self.network.network)
-        # msg = composer.MsgCreateSpotMarketOrder(...)
-        # tx = Transaction(...)
-        # tx.add_message(msg)
-        # signed_tx = tx.sign(private_key)
-        # resp = await self.client.broadcast_tx(signed_tx)
-        
-        # Simulated response
         return {
             "tx_hash": "0x...", 
             "status": "confirmed", 

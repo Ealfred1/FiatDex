@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from decimal import Decimal
 from app.schemas.token import TokenBalance
 
@@ -18,18 +18,19 @@ class WalletVerifyRequest(BaseModel):
     signature: str
     nonce: str
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-class WalletBalance(BaseModel):
-    total_value_usd: Decimal
-    total_value_local: Decimal
-    local_currency: str
-    tokens: list[TokenBalance]
-
 class UserResponse(BaseModel):
     wallet_address: str
     wallet_type: str
     preferred_currency: str
     is_active: bool
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class WalletBalance(BaseModel):
+    total_value_usd: Decimal
+    total_value_local: Decimal
+    local_currency: str
+    tokens: List[TokenBalance]

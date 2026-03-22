@@ -18,24 +18,68 @@ from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/wallet", tags=["Wallet"])
 
-@router.post("/auth/nonce", response_model=WalletNonceResponse)
+@router.post(
+    "/auth/nonce", 
+    summary="Request authentication nonce",
+    description="""
+Step 1 of 2 in the non-custodial wallet authentication flow.
+
+Returns a unique nonce and a pre-formatted message for the user to sign
+with their wallet (Keplr or MetaMask).
+
+**Why sign a message?**
+FiatDex is non-custodial — it never holds private keys. Instead of a password,
+users prove they own their wallet by signing a challenge message.
+The signature is then verified server-side in Step 2.
+
+**Nonce expiry:** 5 minutes. Request a fresh nonce if expired.
+
+**Example message returned:**
+```
+FiatDex Authentication
+Address: inj1abc...xyz
+Nonce: a3f92bc1
+Timestamp: 2026-03-22T10:00:00Z
+```
+Sign this exact string in your wallet.
+""",
+    response_model=WalletNonceResponse,
+    operation_id="request_auth_nonce",
+)
 async def get_nonce(request: WalletAuthRequest):
-    """
-    Generate a nonce for wallet signature authentication.
-    """
     nonce = str(uuid.uuid4())
     message = auth_service.generate_sign_message(request.wallet_address, nonce)
     
     # Store nonce in Redis for 5 minutes
     await redis_client.set_cache(f"nonce:{request.wallet_address}", nonce, ttl=300)
     
-    return WalletNonceResponse(nonce=nonce, message=message)
+    return WalletNonceResponse(nonce=nonce, message=message, expires_in=300)
 
-@router.post("/auth/verify", response_model=TokenResponse)
+@router.post(
+    "/auth/verify", 
+    summary="Verify wallet signature and get JWT",
+    description="""
+Step 2 of 2 in the wallet authentication flow.
+
+Submits the signed message from the user's wallet. FiatDex verifies the
+signature cryptographically:
+- **Keplr (Cosmos):** secp256k1 signature verification
+- **MetaMask (EVM):** eth_account personal_sign recovery
+
+On success:
+- Creates a user account if this is the first login
+- Returns a JWT Bearer token (valid 7 days)
+- Returns the user profile
+
+**Use the returned `access_token` as a Bearer token on all authenticated endpoints:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+""",
+    response_model=TokenResponse,
+    operation_id="verify_wallet_signature",
+)
 async def verify_signature(request: WalletVerifyRequest, db: AsyncSession = Depends(get_db)):
-    """
-    Verify wallet signature and issue JWT access token.
-    """
     message = auth_service.generate_sign_message(request.wallet_address, request.nonce)
     is_valid = await auth_service.verify_signature(
         request.wallet_address, 
@@ -71,25 +115,28 @@ async def verify_signature(request: WalletVerifyRequest, db: AsyncSession = Depe
     # Issue JWT
     access_token = auth_service.create_access_token(data={"sub": user.wallet_address})
     
-    return TokenResponse(access_token=access_token)
+    return TokenResponse(access_token=access_token, user=user)
 
-@router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    """
-    Get current authenticated user info.
-    """
-    return UserResponse(
-        wallet_address=current_user.wallet_address,
-        wallet_type=current_user.wallet_type,
-        preferred_currency=current_user.preferred_currency,
-        is_active=current_user.is_active
-    )
+@router.get(
+    "/balance", 
+    summary="Get wallet token balances",
+    description="""
+Returns all token balances held in the authenticated user's connected wallet,
+enriched with current USD and local currency values.
 
-@router.get("/balance", response_model=WalletBalance)
+Data sourced live from the Injective Bank module — always reflects on-chain state.
+
+Each balance includes:
+- Token symbol, name, and logo
+- Raw balance (in token's native decimals)
+- Formatted balance (human-readable)
+- Current USD value
+- Current local currency value (based on user's `preferred_currency`)
+""",
+    response_model=WalletBalance,
+    operation_id="get_wallet_balance",
+)
 async def get_balance(current_user: User = Depends(get_current_user)):
-    """
-    Fetch live wallet balances for the authenticated user.
-    """
     balances = await injective_service.get_wallet_balances(current_user.wallet_address)
     
     # Calculate total value (mock for now)
@@ -102,9 +149,13 @@ async def get_balance(current_user: User = Depends(get_current_user)):
         tokens=balances
     )
 
-@router.put("/preferences", response_model=UserResponse)
+@router.put(
+    "/preferences", 
+    response_model=UserResponse,
+    operation_id="update_user_preferences",
+)
 async def update_preferences(
-    currency: Optional[str] = None,
+    currency: Optional[str] = Query(None, pattern="^(NGN|GHS|KES|ZAR|USD)$"),
     push_token: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

@@ -1,8 +1,44 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from decimal import Decimal
 from typing import List, Optional, Dict
 from datetime import datetime
 
+class OnrampQuoteRequest(BaseModel):
+    fiat_amount: float
+    fiat_currency: str
+    target_market_id: str
+    payment_method: str = "credit_debit_card"
+
+class OnrampQuoteResponse(BaseModel):
+    provider: str
+    fiat_amount: float
+    fiat_currency: str
+    estimated_inj_amount: float
+    estimated_target_amount: float
+    fees: float
+    expires_at: Optional[datetime] = None
+
+class OnrampSessionRequest(BaseModel):
+    provider: str
+    fiat_amount: float
+    fiat_currency: str
+    target_denom: str
+    payment_method: str = "credit_debit_card"
+    slippage_tolerance: float = 0.01
+
+class OnrampSessionResponse(BaseModel):
+    transaction_id: str
+    widget_url: str
+
+class OnrampOrderResult(BaseModel):
+    transaction_id: str
+    onramp_status: str
+    swap_status: str
+    inj_received: Optional[float] = None
+    target_received: Optional[float] = None
+    explorer_url: Optional[str] = None
+
+# Legacy/Service Internal schemas
 class FiatQuote(BaseModel):
     provider: str
     fiat_amount: Decimal

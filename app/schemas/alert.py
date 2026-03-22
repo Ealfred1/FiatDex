@@ -1,29 +1,28 @@
 from pydantic import BaseModel
 from decimal import Decimal
 from datetime import datetime
-from uuid import UUID
 from typing import Optional
 
-class PriceAlertCreate(BaseModel):
+class AlertCreate(BaseModel):
     token_denom: str
     token_symbol: str
-    target_price_usd: Decimal
+    target_price_usd: float
     condition: str # "above", "below"
 
-class PriceAlertResponse(BaseModel):
-    id: UUID
+class AlertResponse(BaseModel):
+    id: str
     token_denom: str
     token_symbol: str
-    target_price_usd: Decimal
+    target_price_usd: float
     condition: str
     is_active: bool
     created_at: datetime
 
-class WatchlistCreate(BaseModel):
+class WatchlistAddItem(BaseModel):
     token_denom: str
     token_symbol: str
 
-class WatchlistItemResponse(BaseModel):
+class WatchlistResponse(BaseModel):
     token_denom: str
     token_symbol: str
     added_at: datetime

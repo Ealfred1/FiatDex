@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import tokens, wallet, onramp, portfolio, alerts
+from app.api.v1 import tokens, wallet, onramp, portfolio, alerts, health
 
 api_router = APIRouter()
 
@@ -8,3 +8,4 @@ api_router.include_router(wallet.router)
 api_router.include_router(onramp.router)
 api_router.include_router(portfolio.router)
 api_router.include_router(alerts.router)
+api_router.include_router(health.router)

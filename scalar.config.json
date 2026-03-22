@@ -1,0 +1,28 @@
+{
+  "theme": "moon",
+  "layout": "modern",
+  "defaultHttpClient": {
+    "targetKey": "python",
+    "clientKey": "requests"
+  },
+  "hiddenClients": [],
+  "searchHotKey": "k",
+  "showSidebar": true,
+  "hideModels": false,
+  "hideDownloadButton": false,
+  "darkMode": true,
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local Development"
+    },
+    {
+      "url": "https://api.fiatdex.app",
+      "description": "Production"
+    },
+    {
+      "url": "https://testnet-api.fiatdex.app",
+      "description": "Testnet"
+    }
+  ]
+}

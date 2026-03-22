@@ -48,18 +48,25 @@ class SwapService:
             explorer_url=f"https://explorer.injective.network/transaction/{tx_hash}"
         )
 
-    async def get_swap_estimate(
+    async def estimate_swap(
         self,
         inj_amount: Decimal,
         target_market_id: str,
         slippage: float = 0.01,
+        amount: Decimal | None = None, # Added to match router usage
+        target_denom: str | None = None,
+        source_denom: str | None = None
     ) -> SwapEstimate:
         """
         Query orderbook and simulate swap.
         """
+        # Handle the way router calls it
+        final_target = target_market_id or target_denom
+        final_amount = inj_amount or amount
+        
         # Simplified estimate
         summaries = await injective_service.get_all_market_summaries()
-        summary = next((s for s in summaries if s.market_id == target_market_id), None)
+        summary = next((s for s in summaries if s.market_id == final_target), None)
         
         if not summary:
             raise Exception("Market not found")

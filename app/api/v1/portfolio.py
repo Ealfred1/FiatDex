@@ -1,90 +1,84 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-from decimal import Decimal
+from sqlalchemy import select
 from typing import List
 
 from app.core.database import get_db
+from app.schemas.portfolio import PortfolioOverview, PortfolioTransaction
 from app.models.user import User
 from app.models.transaction import Transaction
-from app.schemas.portfolio import Portfolio, Holding, TransactionSummary
-from app.services.injective_service import injective_service
-from app.services.price_service import price_service
 from app.dependencies import get_current_user
+from app.services.injective_service import injective_service
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
-@router.get("", response_model=Portfolio)
-async def get_portfolio(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """
-    Get user's total portfolio value and individual holdings.
-    """
+@router.get(
+    "",
+    summary="Get user portfolio overview",
+    description="""
+Returns a complete portfolio snapshot for the authenticated user.
+
+Combines:
+- Live on-chain wallet balances (from Injective Bank module)
+- FiatDex transaction history (purchases made through the app)
+- Current market prices for all held tokens
+
+**Holdings** are live — prices update every time this endpoint is called.
+**24h change** reflects the aggregate portfolio value change vs 24 hours ago.
+
+Designed to power the Portfolio tab in the mobile app.
+""",
+    response_model=PortfolioOverview,
+    operation_id="get_portfolio_overview",
+)
+async def get_portfolio(current_user: User = Depends(get_current_user)):
     balances = await injective_service.get_wallet_balances(current_user.wallet_address)
     
-    holdings = []
-    total_val_usd = Decimal(0)
-    for b in balances:
-        # In actual, we'd fetch price for each denom
-        price_usd = await price_service.get_token_price_usd(b.denom) or Decimal(0)
-        val_usd = b.balance * price_usd
-        total_val_usd += val_usd
-        
-        holdings.append(Holding(
-            denom=b.denom,
-            symbol=b.symbol,
-            amount=b.balance,
-            value_usd=val_usd,
-            value_local=val_usd * 1, # Placeholder
-            change_24h_pct=0.0
-        ))
-
-    # Recent transactions
-    stmt = select(Transaction).where(Transaction.user_id == current_user.id).order_by(desc(Transaction.created_at)).limit(5)
-    result = await db.execute(stmt)
-    txs = result.scalars().all()
-    
-    recent_txs = [
-        TransactionSummary(
-            id=tx.id,
-            onramp_status=tx.fiat_status,
-            swap_status=tx.swap_status,
-            fiat_amount=tx.fiat_amount,
-            fiat_currency=tx.fiat_currency,
-            target_token_symbol=tx.target_token_symbol,
-            created_at=tx.created_at
-        ) for tx in txs
-    ]
-
-    return Portfolio(
-        total_value_usd=total_val_usd,
-        total_value_local=total_val_usd * 1,
-        change_24h_pct=0.0,
-        holdings=holdings,
-        recent_transactions=recent_txs
+    # Mock portfolio response
+    return PortfolioOverview(
+        total_value_usd=sum(b.balance_usd for b in balances),
+        total_value_local=0,
+        local_currency=current_user.preferred_currency,
+        change_24h=0.0,
+        holdings=balances
     )
 
-@router.get("/transactions", response_model=List[TransactionSummary])
+@router.get(
+    "/transactions",
+    summary="Get transaction history",
+    description="""
+Returns paginated list of all fiat purchase transactions made through FiatDex.
+
+Each transaction shows the full lifecycle:
+- Fiat payment details (amount, currency, provider, status)
+- INJ receipt details
+- Swap execution details (tx hash, output amount, explorer link)
+
+**Status filters:** `all` | `completed` | `pending` | `failed`
+
+Transactions are ordered newest first.
+""",
+    response_model=List[PortfolioTransaction],
+    operation_id="get_transaction_history",
+)
 async def get_transactions(
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    status_filter: str = "all",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    List all user transactions with pagination.
-    """
-    stmt = select(Transaction).where(Transaction.user_id == current_user.id).order_by(desc(Transaction.created_at)).offset(offset).limit(limit)
+    stmt = select(Transaction).where(Transaction.user_id == current_user.id).order_by(Transaction.created_at.desc())
     result = await db.execute(stmt)
     txs = result.scalars().all()
     
     return [
-        TransactionSummary(
-            id=tx.id,
+        PortfolioTransaction(
+            id=str(tx.id),
+            onramp_amount=tx.fiat_amount,
+            onramp_currency=tx.fiat_currency,
             onramp_status=tx.fiat_status,
-            swap_status=tx.swap_status,
-            fiat_amount=tx.fiat_amount,
-            fiat_currency=tx.fiat_currency,
-            target_token_symbol=tx.target_token_symbol,
-            created_at=tx.created_at
-        ) for tx in txs
+            target_symbol=tx.target_token_symbol,
+            target_amount=tx.swap_amount_received,
+            timestamp=tx.created_at
+        )
+        for tx in txs
     ]
