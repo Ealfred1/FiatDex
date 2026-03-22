@@ -12,24 +12,36 @@ class RedisClient:
         )
 
     async def get_cache(self, key: str) -> Optional[Any]:
-        value = await self.client.get(key)
-        if value:
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return value
-        return None
+        try:
+            value = await self.client.get(key)
+            if value:
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    return value
+            return None
+        except Exception:
+            return None
 
     async def set_cache(self, key: str, value: Any, ttl: int = 60) -> bool:
-        if not isinstance(value, str):
-            value = json.dumps(value)
-        return await self.client.set(key, value, ex=ttl)
+        try:
+            if not isinstance(value, str):
+                value = json.dumps(value)
+            return await self.client.set(key, value, ex=ttl)
+        except Exception:
+            return False
 
     async def delete_cache(self, key: str) -> int:
-        return await self.client.delete(key)
+        try:
+            return await self.client.delete(key)
+        except Exception:
+            return 0
 
     async def close(self):
-        await self.client.close()
+        try:
+            await self.client.close()
+        except Exception:
+            pass
 
 redis_client = RedisClient()
 

@@ -37,22 +37,23 @@ class InjectiveService:
         if cached:
             return cached
 
-        markets = await self.client.get_spot_markets(status="active")
-        market_list = []
-        if hasattr(markets, 'markets'):
-            for m in markets.markets:
+        try:
+            markets = await self.client.fetch_spot_markets()
+            market_list = []
+            for m in markets:
                 market_list.append({
-                    "market_id": m.market_id,
-                    "base_denom": m.base_denom,
-                    "quote_denom": m.quote_denom,
-                    "ticker": m.ticker,
-                    "status": m.status,
-                    "min_price_tick_size": float(m.min_price_tick_size),
-                    "min_quantity_tick_size": float(m.min_quantity_tick_size)
+                    "market_id": getattr(m, "market_id", ""),
+                    "base_denom": getattr(m, "base_denom", ""),
+                    "quote_denom": getattr(m, "quote_denom", ""),
+                    "ticker": getattr(m, "ticker", ""),
+                    "status": getattr(m, "status", "active"),
+                    "min_price_tick_size": float(getattr(m, "min_price_tick_size", 0)),
+                    "min_quantity_tick_size": float(getattr(m, "min_quantity_tick_size", 0))
                 })
-
-        await redis_client.set_cache(cache_key, market_list, ttl=60)
-        return market_list
+            await redis_client.set_cache(cache_key, market_list, ttl=60)
+            return market_list
+        except Exception:
+            return []
 
     async def get_spot_market(self, market_id: str) -> Optional[dict]:
         markets = await self.get_all_spot_markets()
@@ -68,31 +69,33 @@ class InjectiveService:
         if cached:
             return [MarketSummary(**m) for m in cached]
 
-        # Get denoms first to join
-        markets = await self.get_all_spot_markets()
-        market_map = {m["market_id"]: m["base_denom"] for m in markets}
+        try:
+            markets = await self.get_all_spot_markets()
+            market_map = {m["market_id"]: m["base_denom"] for m in markets}
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{self.exchange_api_url}/api/v1/spot/market_summary")
-            data = resp.json()
-            items = data.get("data", data) if isinstance(data, dict) else data
-            
-            summaries = []
-            for item in items:
-                mid = item.get("marketId", item.get("market_id"))
-                summaries.append(MarketSummary(
-                    market_id=mid,
-                    base_denom=market_map.get(mid),
-                    price=Decimal(str(item.get("lastPrice", item.get("last_price", 0)))),
-                    volume=Decimal(str(item.get("volume", 0))),
-                    high=Decimal(str(item.get("high", 0))),
-                    low=Decimal(str(item.get("low", 0))),
-                    change=float(item.get("priceChange", item.get("change", 0))),
-                    last_price=Decimal(str(item.get("lastPrice", item.get("last_price", 0))))
-                ))
-            
-            await redis_client.set_cache(cache_key, [s.model_dump() for s in summaries], ttl=10)
-            return summaries
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{self.exchange_api_url}/api/v1/spot/market_summary")
+                data = resp.json()
+                items = data.get("data", data) if isinstance(data, dict) else data
+                
+                summaries = []
+                for item in items:
+                    mid = item.get("marketId", item.get("market_id"))
+                    summaries.append(MarketSummary(
+                        market_id=mid,
+                        base_denom=market_map.get(mid),
+                        price=Decimal(str(item.get("lastPrice", item.get("last_price", 0)))),
+                        volume=Decimal(str(item.get("volume", 0))),
+                        high=Decimal(str(item.get("high", 0))),
+                        low=Decimal(str(item.get("low", 0))),
+                        change=float(item.get("priceChange", item.get("change", 0))),
+                        last_price=Decimal(str(item.get("lastPrice", item.get("last_price", 0))))
+                    ))
+                
+                await redis_client.set_cache(cache_key, [s.model_dump() for s in summaries], ttl=10)
+                return summaries
+        except Exception:
+            return []
 
     async def get_wallet_balances(self, injective_address: str) -> List[TokenBalance]:
         url = f"{self.lcd_url}/cosmos/bank/v1beta1/balances/{injective_address}"

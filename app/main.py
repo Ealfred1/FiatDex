@@ -89,8 +89,8 @@ async def scalar_html():
     return get_scalar_api_reference(
         openapi_url="/openapi.json",
         title="FiatDex API",
-        scalar_theme="moon",
         scalar_favicon_url="https://injective.com/favicon.ico",
+        force_dark_mode_state="dark",
     )
 
 # v1 Routes
