@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from app.config import settings
 from app.schemas.onramp import FiatOnrampQuote, KadoOrderResult
 

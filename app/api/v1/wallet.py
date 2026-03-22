@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.redis_client import redis_client

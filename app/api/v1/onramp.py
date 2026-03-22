@@ -73,15 +73,22 @@ async def get_quote(request: OnrampQuoteRequest, current_user: User = Depends(ge
         )
     except Exception:
         # Fallback to Kado
-        return OnrampQuoteResponse(
-            provider="kado",
-            fiat_amount=request.fiat_amount,
-            fiat_currency=request.fiat_currency,
-            estimated_inj_amount=quote.crypto_amount,
-            estimated_target_amount=quote.crypto_amount, # No swap estimate in fallback for simplicity
-            fees=quote.total_fee,
-            expires_at=quote.expires_at
-        )
+        try:
+            kado_quote = await kado_service.get_quote(
+                fiat_amount=request.fiat_amount,
+                fiat_currency=request.fiat_currency
+            )
+            return OnrampQuoteResponse(
+                provider="kado",
+                fiat_amount=request.fiat_amount,
+                fiat_currency=request.fiat_currency,
+                estimated_inj_amount=kado_quote.crypto_amount,
+                estimated_target_amount=kado_quote.crypto_amount, # Simplified
+                fees=kado_quote.total_fee,
+                expires_at=kado_quote.expires_at
+            )
+        except Exception:
+            raise HTTPException(status_code=503, detail="Onramp providers currently unavailable")
 
 @router.post(
     "/initiate",

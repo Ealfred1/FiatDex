@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Dict, Any, Optional
 import httpx
 from urllib.parse import urlencode
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.schemas.onramp import FiatOnrampQuote, TransakOrderResult

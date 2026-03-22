@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 from app.tasks.celery_app import celery_app
 from app.services.injective_service import injective_service
 from app.services.price_service import price_service
@@ -43,7 +43,7 @@ async def _check_alerts_async():
             if triggered:
                 # 2. Mark as triggered
                 alert.is_active = False
-                alert.triggered_at = datetime.utcnow()
+                alert.triggered_at = datetime.now(timezone.utc)
                 await session.commit()
 
                 # 3. Get user push token

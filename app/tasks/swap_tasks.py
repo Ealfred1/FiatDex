@@ -70,7 +70,7 @@ async def _execute_swap_async(
             tx.swap_status = "confirmed"
             tx.swap_amount_received = swap_result["filled_quantity"]
             tx.inj_amount = Decimal(inj_amount)
-            tx.inj_received_at = datetime.utcnow()
+            tx.inj_received_at = datetime.now(timezone.utc)
             
             # 5. Update Holdings
             await _update_user_holding(
@@ -116,4 +116,4 @@ async def _update_user_holding(session, user_id, denom, symbol, amount, price_us
         holding.total_cost_usd = new_total_cost
         holding.amount = new_amount
 
-from datetime import datetime
+from datetime import datetime, timezone

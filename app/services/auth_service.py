@@ -1,7 +1,7 @@
 import uuid
 import secrets
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -32,7 +32,7 @@ class AuthService:
     # ── Wallet Auth (Legacy) ──────────────────────────────────────────────────
 
     def generate_sign_message(self, wallet_address: str, nonce: str) -> str:
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         return (
             f"FiatDex Authentication\n"
             f"Address: {wallet_address}\n"
@@ -83,12 +83,12 @@ class AuthService:
 
     def generate_otp(self) -> Tuple[str, datetime]:
         code = "".join([str(random.randint(0, 9)) for _ in range(6)])
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
         return code, expires_at
 
     def generate_reset_token(self) -> Tuple[str, datetime]:
         token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=1)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         return token, expires_at
 
     async def register_email_user(
@@ -134,11 +134,11 @@ class AuthService:
         if user.otp_code != otp_code:
             raise HTTPException(status_code=401, detail="Invalid verification code")
         
-        if datetime.utcnow() > user.otp_expires_at:
+        if datetime.now(timezone.utc) > user.otp_expires_at:
             raise HTTPException(status_code=401, detail="Verification code expired")
 
         user.email_verified = True
-        user.email_verified_at = datetime.utcnow()
+        user.email_verified_at = datetime.now(timezone.utc)
         user.otp_code = None
         user.otp_expires_at = None
         await db.commit()
@@ -160,7 +160,7 @@ class AuthService:
         if not user.email_verified:
             raise HTTPException(status_code=403, detail="Please verify your email first")
 
-        user.last_active = datetime.utcnow()
+        user.last_active = datetime.now(timezone.utc)
         await db.commit()
 
         token = self.create_access_token({"sub": str(user.id)})
@@ -210,7 +210,7 @@ class AuthService:
         res = await db.execute(stmt)
         user = res.scalar_one_or_none()
         
-        if not user or datetime.utcnow() > user.password_reset_expires_at:
+        if not user or datetime.now(timezone.utc) > user.password_reset_expires_at:
             raise HTTPException(status_code=401, detail="Invalid or expired reset token")
 
         user.hashed_password = self.hash_password(new_password)
@@ -224,9 +224,9 @@ class AuthService:
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

@@ -10,7 +10,7 @@ from app.services.injective_service import injective_service
 from app.schemas.sell import (
     SellQuoteRequest, SellQuoteResponse, SellExecuteRequest, SellExecuteResponse
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from decimal import Decimal
 

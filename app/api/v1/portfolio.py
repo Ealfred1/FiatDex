@@ -73,7 +73,19 @@ async def get_portfolio(
         })
         total_holdings_value += current_value
 
-    on_chain_total = sum(Decimal(str(b.balance_usd)) for b in on_chain_balances)
+    on_chain_balances = on_chain_balances or []
+    on_chain_total = Decimal("0")
+    for b in on_chain_balances:
+        # Support both dict and object formats from InjectiveService
+        if isinstance(b, dict):
+            val = b.get("balance_usd") or b.get("value_usd") or "0"
+        else:
+            val = getattr(b, "balance_usd", None) or getattr(b, "value_usd", "0")
+        try:
+            on_chain_total += Decimal(str(val))
+        except (TypeError, ValueError, Exception):
+            pass
+
     total_portfolio_value = total_holdings_value + on_chain_total + current_user.account_balance
 
     return PortfolioOverview(

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from datetime import datetime
+import datetime
 from app.core.database import get_db
 from app.core.redis_client import redis_client
 from app.services.injective_service import injective_service
@@ -65,7 +65,7 @@ async def health_check(response: Response, db: AsyncSession = Depends(get_db)):
         
     return HealthResponse(
         status=overall_status,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.datetime.now(datetime.timezone.utc),
         checks=checks,
         version="1.0.0"
     )

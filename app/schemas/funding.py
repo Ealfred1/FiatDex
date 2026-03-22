@@ -1,7 +1,8 @@
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, field_serializer, ConfigDict
 from decimal import Decimal
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 
 class FundingInitiateRequest(BaseModel):
     amount: Decimal
@@ -13,7 +14,9 @@ class FundingInitiateResponse(BaseModel):
     reference: str
 
 class FundingHistoryResponse(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
     reference: str
     amount: Decimal
     currency: str
