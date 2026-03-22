@@ -1,8 +1,10 @@
 import httpx
+import logging
 from app.config import settings
 from typing import Optional
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+logger = logging.getLogger(__name__)
 
 class BrevoService:
     def __init__(self):
@@ -31,9 +33,15 @@ class BrevoService:
 
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"Sending OTP email to {email}")
                 response = await client.post(BREVO_API_URL, json=payload, headers=self.headers)
-                return response.status_code == 201
-            except Exception:
+                if response.status_code == 201:
+                    logger.info(f"OTP email sent to {email}")
+                    return True
+                logger.warning(f"Brevo OTP email failed: {response.status_code}")
+                return False
+            except Exception as e:
+                logger.error(f"Failed to send OTP email to {email}: {e}")
                 return False
 
     async def send_password_reset_email(self, email: str, full_name: str, reset_token: str) -> bool:
@@ -47,9 +55,15 @@ class BrevoService:
         }
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"Sending password reset email to {email}")
                 response = await client.post(BREVO_API_URL, json=payload, headers=self.headers)
-                return response.status_code == 201
-            except Exception:
+                if response.status_code == 201:
+                    logger.info(f"Password reset email sent to {email}")
+                    return True
+                logger.warning(f"Brevo reset email failed: {response.status_code}")
+                return False
+            except Exception as e:
+                logger.error(f"Failed to send reset email to {email}: {e}")
                 return False
 
     async def send_welcome_email(self, email: str, full_name: str) -> bool:
@@ -61,9 +75,15 @@ class BrevoService:
         }
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"Sending welcome email to {email}")
                 response = await client.post(BREVO_API_URL, json=payload, headers=self.headers)
-                return response.status_code == 201
-            except Exception:
+                if response.status_code == 201:
+                    logger.info(f"Welcome email sent to {email}")
+                    return True
+                logger.warning(f"Brevo welcome email failed: {response.status_code}")
+                return False
+            except Exception as e:
+                logger.error(f"Failed to send welcome email to {email}: {e}")
                 return False
 
     def _otp_email_html(self, name: str, otp: str) -> str:

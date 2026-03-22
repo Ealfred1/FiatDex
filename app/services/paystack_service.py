@@ -2,11 +2,13 @@ import httpx
 import hmac
 import hashlib
 import json
+import logging
 from app.config import settings
 from typing import Optional, Dict, Any, Tuple
 from decimal import Decimal
 
 PAYSTACK_BASE_URL = "https://api.paystack.co"
+logger = logging.getLogger(__name__)
 
 class PaystackService:
     def __init__(self):
@@ -31,13 +33,17 @@ class PaystackService:
         
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"Initializing Paystack transaction: {currency} {amount_fiat} for {email}")
                 response = await client.post(url, json=payload, headers=self.headers)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("status"):
+                        logger.info(f"Paystack transaction initialized: {data.get('data', {}).get('reference')}")
                         return data.get("data")
+                logger.warning(f"Paystack returned unexpected response: {response.status_code}")
                 return None
-            except Exception:
+            except Exception as e:
+                logger.error(f"Paystack initialize_transaction failed: {e}")
                 return None
 
     async def verify_transaction(self, reference: str) -> Optional[Dict[str, Any]]:
@@ -48,13 +54,16 @@ class PaystackService:
         
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"Verifying Paystack transaction: {reference}")
                 response = await client.get(url, headers=self.headers)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("status"):
+                        logger.info(f"Paystack transaction verified: {reference}")
                         return data.get("data")
                 return None
-            except Exception:
+            except Exception as e:
+                logger.error(f"Paystack verify_transaction failed: {e}")
                 return None
 
     def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:

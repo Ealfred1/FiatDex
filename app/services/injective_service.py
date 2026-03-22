@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from decimal import Decimal
 from typing import List, Optional, Any
 from datetime import datetime
@@ -11,6 +12,8 @@ from app.config import settings
 from app.schemas.token import TokenMeta, MarketSummary, TokenBalance, SwapEstimate
 from app.schemas.trade import RecentTrade, Orderbook, PriceLevel
 from app.core.redis_client import redis_client
+
+logger = logging.getLogger(__name__)
 
 class InjectiveService:
     def __init__(self):
@@ -51,8 +54,10 @@ class InjectiveService:
                     "min_quantity_tick_size": float(getattr(m, "min_quantity_tick_size", 0))
                 })
             await redis_client.set_cache(cache_key, market_list, ttl=60)
+            logger.info(f"Fetched {len(market_list)} spot markets from Injective")
             return market_list
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to fetch spot markets from Injective: {e}")
             return []
 
     async def get_spot_market(self, market_id: str) -> Optional[dict]:
@@ -93,8 +98,10 @@ class InjectiveService:
                     ))
                 
                 await redis_client.set_cache(cache_key, [s.model_dump() for s in summaries], ttl=10)
+                logger.info(f"Fetched {len(summaries)} market summaries")
                 return summaries
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to fetch market summaries: {e}")
             return []
 
     async def get_wallet_balances(self, injective_address: str) -> List[TokenBalance]:

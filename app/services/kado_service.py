@@ -1,9 +1,12 @@
+import logging
 from decimal import Decimal
 from typing import Optional
 import httpx
 from datetime import datetime, timezone
 from app.config import settings
 from app.schemas.onramp import FiatOnrampQuote, KadoOrderResult
+
+logger = logging.getLogger(__name__)
 
 class KadoService:
     def __init__(self):
@@ -16,6 +19,7 @@ class KadoService:
         """
         # Note: Kado API details vary, this is a placeholder based on typical Kado integration
         async with httpx.AsyncClient() as client:
+            logger.info(f"Fetching Kado quote: {fiat_currency} {fiat_amount} -> {crypto_currency}")
             resp = await client.get(
                 f"{self.base_url}/quote", 
                 params={
@@ -27,6 +31,7 @@ class KadoService:
                 }
             )
             data = resp.json()["data"]
+            logger.info(f"Kado quote fetched: {data.get('cryptoAmount')} {crypto_currency}")
             
             return FiatOnrampQuote(
                 provider="kado",

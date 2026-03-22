@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import logging
 from decimal import Decimal
 from typing import Dict, Any, Optional
 import httpx
@@ -8,6 +9,8 @@ from datetime import datetime, timezone
 
 from app.config import settings
 from app.schemas.onramp import FiatOnrampQuote, TransakOrderResult
+
+logger = logging.getLogger(__name__)
 
 class TransakService:
     def __init__(self):
@@ -44,9 +47,11 @@ class TransakService:
         }
         
         async with httpx.AsyncClient() as client:
+            logger.info(f"Fetching Transak quote: {fiat_currency} {fiat_amount} -> {crypto_currency}")
             resp = await client.get(f"{self.base_url}/api/v2/currencies/price", params=params)
             resp.raise_for_status()
             data = resp.json()["response"]
+            logger.info(f"Transak quote fetched successfully")
             
             return FiatOnrampQuote(
                 provider="transak",

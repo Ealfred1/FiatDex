@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from decimal import Decimal
 from typing import List, Optional
 from app.services.injective_service import injective_service
 from app.schemas.token import TokenFeedResponse, TokenSummary, MarketSummary
 from app.core.redis_client import redis_client
 import httpx
+
+logger = logging.getLogger(__name__)
 
 class PriceService:
     async def get_token_feed(
@@ -119,6 +122,7 @@ class PriceService:
         # Using frankfurter.app as a free API
         try:
             async with httpx.AsyncClient() as client:
+                logger.info(f"Fetching forex rate: {from_currency} -> {to_currency}")
                 resp = await client.get(
                     f"https://api.frankfurter.app/latest?from={from_currency}&to={to_currency}",
                     timeout=5.0
@@ -126,8 +130,11 @@ class PriceService:
                 if resp.status_code == 200:
                     rate = resp.json()["rates"][to_currency]
                     await redis_client.set_cache(cache_key, rate, ttl=3600)
+                    logger.info(f"Forex rate fetched: {from_currency} -> {to_currency} = {rate}")
                     return float(rate)
-        except Exception:
+                logger.warning(f"Forex API returned {resp.status_code}")
+        except Exception as e:
+            logger.error(f"Failed to fetch forex rate: {e}")
             pass
 
         # Fallback for common African currencies

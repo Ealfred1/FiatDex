@@ -1,6 +1,7 @@
 from decimal import Decimal
 from uuid import UUID
 import asyncio
+import logging
 from datetime import datetime, timezone
 from sqlalchemy import select
 
@@ -9,6 +10,8 @@ from app.services.injective_service import injective_service
 from app.core.database import AsyncSessionLocal
 from app.models.transaction import Transaction
 from app.models.holding import Holding
+
+logger = logging.getLogger(__name__)
 
 @celery_app.task(
     bind=True,
@@ -47,8 +50,10 @@ async def _execute_swap_async(
         tx = result.scalar_one_or_none()
         
         if not tx:
+            logger.warning(f"Swap task: transaction {transaction_id} not found")
             return f"Transaction {transaction_id} not found"
 
+        logger.info(f"Starting swap execution for TX {transaction_id}: {inj_amount} INJ -> {target_market_id}")
         try:
             # 3. Execute spot swap
             # (Simulation/Placeholder logic)
@@ -80,11 +85,13 @@ async def _execute_swap_async(
             )
             
             await session.commit()
+            logger.info(f"Swap executed for TX {transaction_id}: hash={swap_result['tx_hash']}")
             return f"Swap executed for TX {transaction_id}"
             
         except Exception as e:
             tx.swap_status = "failed"
             await session.commit()
+            logger.error(f"Swap failed for TX {transaction_id}: {e}")
             return f"Swap failed for TX {transaction_id}: {str(e)}"
 
 async def _update_user_holding(session, user_id, denom, symbol, amount, price_usd):

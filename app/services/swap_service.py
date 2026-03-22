@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from decimal import Decimal
 from uuid import UUID
 from app.services.injective_service import injective_service
@@ -7,6 +8,8 @@ from app.models.transaction import Transaction
 from app.schemas.token import SwapEstimate
 from app.schemas.swap import SwapStatus
 from app.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 class SwapService:
     async def initiate_auto_swap(
@@ -27,6 +30,7 @@ class SwapService:
         # since webhooks should return quickly.
         from app.tasks.swap_tasks import execute_swap_task
         
+        logger.info(f"Initiating auto-swap for TX {transaction_id}: {inj_amount} INJ -> {target_market_id}")
         task = execute_swap_task.delay(
             transaction_id=str(transaction_id),
             inj_amount=str(inj_amount),
@@ -34,6 +38,7 @@ class SwapService:
             wallet_address=wallet_address,
             slippage_tolerance=slippage_tolerance
         )
+        logger.info(f"Swap task enqueued: {task.id}")
         return task.id
 
     async def check_swap_status(self, tx_hash: str) -> SwapStatus:

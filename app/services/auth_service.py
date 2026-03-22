@@ -1,6 +1,7 @@
 import uuid
 import secrets
 import random
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from jose import JWTError, jwt
@@ -19,6 +20,8 @@ from app.services.brevo_service import BrevoService
 # Injective/EVM signature verification
 from eth_account.messages import encode_defunct
 from eth_account import Account
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -103,8 +106,10 @@ class AuthService:
         stmt = select(User).where(User.email == email)
         res = await db.execute(stmt)
         if res.scalar_one_or_none():
+            logger.warning(f"Registration attempt for existing email: {email}")
             raise HTTPException(status_code=409, detail="Email already registered")
 
+        logger.info(f"Registering new user: {email}")
         otp, expires = self.generate_otp()
         user = User(
             email=email,
@@ -122,6 +127,7 @@ class AuthService:
 
         # Send OTP
         await brevo_service.send_otp_email(email, full_name, otp)
+        logger.info(f"User registered: {email}, OTP sent")
         return user
 
     async def verify_otp(self, db: AsyncSession, email: str, otp_code: str) -> Tuple[str, User]:
@@ -132,6 +138,7 @@ class AuthService:
             raise HTTPException(status_code=404, detail="Email not found")
 
         if user.otp_code != otp_code:
+            logger.warning(f"Invalid OTP attempt for: {email}")
             raise HTTPException(status_code=401, detail="Invalid verification code")
         
         if datetime.now(timezone.utc) > user.otp_expires_at:
@@ -147,6 +154,7 @@ class AuthService:
         await brevo_service.send_welcome_email(user.email, user.full_name)
         
         token = self.create_access_token({"sub": str(user.id)})
+        logger.info(f"Email verified: {email}")
         return token, user
 
     async def login_email(self, db: AsyncSession, email: str, password: str) -> Tuple[str, User]:
@@ -155,6 +163,7 @@ class AuthService:
         user = res.scalar_one_or_none()
         
         if not user or not self.verify_password(password, user.hashed_password):
+            logger.warning(f"Failed login attempt for: {email}")
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
         if not user.email_verified:
@@ -164,6 +173,7 @@ class AuthService:
         await db.commit()
 
         token = self.create_access_token({"sub": str(user.id)})
+        logger.info(f"User logged in: {email}")
         return token, user
 
     async def resend_otp(self, db: AsyncSession, email: str) -> bool:
