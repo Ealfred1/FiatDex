@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from decimal import Decimal
 from app.schemas.token import TokenBalance
@@ -19,17 +19,23 @@ class WalletVerifyRequest(BaseModel):
     nonce: str
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     wallet_address: str
     wallet_type: str
     preferred_currency: str
     is_active: bool
 
 class TokenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
 
 class WalletBalance(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     total_value_usd: Decimal
     total_value_local: Decimal
     local_currency: str

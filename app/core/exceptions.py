@@ -29,7 +29,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_DATA,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={
             "error": {
                 "code": "DATABASE_ERROR",

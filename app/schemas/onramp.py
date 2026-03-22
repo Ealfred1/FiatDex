@@ -39,7 +39,7 @@ class OnrampOrderResult(BaseModel):
     explorer_url: Optional[str] = None
 
 # Legacy/Service Internal schemas
-class FiatQuote(BaseModel):
+class FiatOnrampQuote(BaseModel):
     provider: str
     fiat_amount: Decimal
     fiat_currency: str

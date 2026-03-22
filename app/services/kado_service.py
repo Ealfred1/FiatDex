@@ -3,14 +3,14 @@ from typing import Optional
 import httpx
 from datetime import datetime
 from app.config import settings
-from app.schemas.onramp import FiatQuote, KadoOrderResult
+from app.schemas.onramp import FiatOnrampQuote, KadoOrderResult
 
 class KadoService:
     def __init__(self):
         self.api_key = settings.KADO_API_KEY
         self.base_url = "https://api.kado.money/v1"
 
-    async def get_quote(self, fiat_amount: Decimal, fiat_currency: str, crypto_currency: str = "INJ") -> FiatQuote:
+    async def get_quote(self, fiat_amount: Decimal, fiat_currency: str, crypto_currency: str = "INJ") -> FiatOnrampQuote:
         """
         Get a quote from Kado API.
         """
@@ -28,7 +28,7 @@ class KadoService:
             )
             data = resp.json()["data"]
             
-            return FiatQuote(
+            return FiatOnrampQuote(
                 provider="kado",
                 fiat_amount=fiat_amount,
                 fiat_currency=fiat_currency,

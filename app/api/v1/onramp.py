@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas.onramp import OnrampQuoteRequest, OnrampQuoteResponse, OnrampSessionRequest, OnrampSessionResponse, OnrampOrderResult
@@ -96,9 +97,11 @@ async def initiate_onramp(
     tx = Transaction(
         user_id=current_user.id,
         onramp_provider=request.provider,
+        onramp_order_id=f"pending_{uuid.uuid4()}",
         fiat_amount=request.fiat_amount,
         fiat_currency=request.fiat_currency,
         target_denom=request.target_denom,
+        target_token_symbol=request.target_denom.split("/")[-1].upper(),
         swap_slippage_tolerance=request.slippage_tolerance
     )
     db.add(tx)
@@ -172,7 +175,7 @@ for the swap transaction.
     response_model=OnrampOrderResult,
     operation_id="get_transaction_status",
 )
-async def get_status(transaction_id: str, db: AsyncSession = Depends(get_db)):
+async def get_status(transaction_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     stmt = select(Transaction).where(Transaction.id == transaction_id)
     result = await db.execute(stmt)
     tx = result.scalar_one_or_none()

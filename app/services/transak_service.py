@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from datetime import datetime
 
 from app.config import settings
-from app.schemas.onramp import FiatQuote, TransakOrderResult
+from app.schemas.onramp import FiatOnrampQuote, TransakOrderResult
 
 class TransakService:
     def __init__(self):
@@ -30,7 +30,7 @@ class TransakService:
         fiat_currency: str,
         crypto_currency: str = "INJ",
         payment_method: str = "credit_debit_card",
-    ) -> FiatQuote:
+    ) -> FiatOnrampQuote:
         """
         Get a real-time quote for a fiat → INJ purchase.
         """
@@ -48,17 +48,17 @@ class TransakService:
             resp.raise_for_status()
             data = resp.json()["response"]
             
-            return FiatQuote(
+            return FiatOnrampQuote(
                 provider="transak",
                 fiat_amount=fiat_amount,
                 fiat_currency=fiat_currency,
-                crypto_amount=Decimal(data["cryptoAmount"]),
+                crypto_amount=Decimal(str(data["cryptoAmount"])),
                 crypto_currency=crypto_currency,
-                total_fee=Decimal(data["totalFee"]),
-                network_fee=Decimal(data["networkFee"]),
-                service_fee=Decimal(data["transakFee"]),
-                conversion_price=Decimal(data["conversionPrice"]),
-                expires_at=datetime.utcnow() # Transak doesn't always provide expiry in this call
+                total_fee=Decimal(str(data["totalFee"])),
+                network_fee=Decimal(str(data["networkFee"])),
+                service_fee=Decimal(str(data["transakFee"])),
+                conversion_price=Decimal(str(data["conversionPrice"])),
+                expires_at=datetime.utcnow()
             )
 
     async def generate_widget_url(

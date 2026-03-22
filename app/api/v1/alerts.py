@@ -96,7 +96,7 @@ async def add_to_watchlist(
     await db.refresh(new_item)
     return new_item
 
-@router.delete("/watchlist/{token_denom}")
+@router.delete("/watchlist/{token_denom:path}")
 async def remove_from_watchlist(
     token_denom: str,
     current_user: User = Depends(get_current_user),

@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
+from uuid import UUID
 
 class AlertCreate(BaseModel):
     token_denom: str
@@ -10,7 +11,9 @@ class AlertCreate(BaseModel):
     condition: str # "above", "below"
 
 class AlertResponse(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
     token_denom: str
     token_symbol: str
     target_price_usd: float
@@ -23,6 +26,8 @@ class WatchlistAddItem(BaseModel):
     token_symbol: str
 
 class WatchlistResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     token_denom: str
     token_symbol: str
     added_at: datetime

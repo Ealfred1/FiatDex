@@ -4,11 +4,11 @@ from typing import List, Optional
 from datetime import datetime
 
 class TokenMeta(BaseModel):
-    name: str
-    symbol: str
+    name: str # Token Name
+    symbol: str # Ticker symbol (e.g. INJ)
     decimals: int
     logo_url: Optional[str] = None
-    address: Optional[str] = None
+    address: Optional[str] = None # Contract address if relevant
 
 class TokenSummary(BaseModel):
     market_id: str
@@ -16,14 +16,14 @@ class TokenSummary(BaseModel):
     symbol: str
     name: str
     logo_url: Optional[str] = None
-    price_usd: Decimal
-    price_local: Decimal
+    price_usd: float
+    price_local: float
     local_currency: str
     change_24h: float
-    volume_24h_usd: Decimal
-    market_cap_usd: Optional[Decimal] = None
-    high_24h: Decimal
-    low_24h: Decimal
+    volume_24h_usd: float
+    market_cap_usd: Optional[float] = None
+    high_24h: float
+    low_24h: float
     is_new: bool = False
 
 class TokenFeedResponse(BaseModel):
@@ -33,6 +33,7 @@ class TokenFeedResponse(BaseModel):
 
 class MarketSummary(BaseModel):
     market_id: str
+    base_denom: Optional[str] = None # Added for convenience
     price: Decimal
     volume: Decimal
     high: Decimal
@@ -45,14 +46,14 @@ class TokenBalance(BaseModel):
     symbol: str
     name: str
     logo_url: Optional[str] = None
-    balance: Decimal
-    balance_usd: Decimal
+    balance: float
+    balance_usd: float
     decimals: int
 
 class SwapEstimate(BaseModel):
-    source_amount: Decimal
-    target_amount: Decimal
+    source_amount: float
+    target_amount: float
     price_impact: float
-    fee_amount: Decimal
-    min_received: Decimal
-    exchange_rate: Decimal
+    fee_amount: float
+    min_received: float
+    exchange_rate: float

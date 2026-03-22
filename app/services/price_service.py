@@ -27,7 +27,8 @@ class PriceService:
         cache_key = f"token_feed:{sort_by}:{search}:{target_currency}"
         cached = await redis_client.get_cache(cache_key)
         if cached:
-            return TokenFeedResponse(**cached)
+            # print(f"DEBUG CACHED: {cached}")
+            return TokenFeedResponse.model_validate(cached)
 
         # 1. Fetch all market summaries
         all_summaries = await injective_service.get_all_market_summaries()
@@ -59,7 +60,7 @@ class PriceService:
                 name=meta.name,
                 logo_url=meta.logo_url,
                 price_usd=s.last_price,
-                price_local=s.last_price * Decimal(forex_rate),
+                price_local=float(s.last_price * Decimal(str(forex_rate))),
                 local_currency=local_currency,
                 change_24h=s.change,
                 volume_24h_usd=s.volume,

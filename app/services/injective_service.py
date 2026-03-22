@@ -37,7 +37,6 @@ class InjectiveService:
         if cached:
             return cached
 
-        # Ensure client is initialized in the current loop
         markets = await self.client.get_spot_markets(status="active")
         market_list = []
         if hasattr(markets, 'markets'):
@@ -69,6 +68,10 @@ class InjectiveService:
         if cached:
             return [MarketSummary(**m) for m in cached]
 
+        # Get denoms first to join
+        markets = await self.get_all_spot_markets()
+        market_map = {m["market_id"]: m["base_denom"] for m in markets}
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{self.exchange_api_url}/api/v1/spot/market_summary")
             data = resp.json()
@@ -76,8 +79,10 @@ class InjectiveService:
             
             summaries = []
             for item in items:
+                mid = item.get("marketId", item.get("market_id"))
                 summaries.append(MarketSummary(
-                    market_id=item.get("marketId", item.get("market_id")),
+                    market_id=mid,
+                    base_denom=market_map.get(mid),
                     price=Decimal(str(item.get("lastPrice", item.get("last_price", 0)))),
                     volume=Decimal(str(item.get("volume", 0))),
                     high=Decimal(str(item.get("high", 0))),
@@ -108,8 +113,8 @@ class InjectiveService:
                         symbol=meta.symbol,
                         name=meta.name,
                         logo_url=meta.logo_url,
-                        balance=readable_amount,
-                        balance_usd=Decimal(0),
+                        balance=float(readable_amount),
+                        balance_usd=0.0,
                         decimals=meta.decimals
                     ))
             return balances
