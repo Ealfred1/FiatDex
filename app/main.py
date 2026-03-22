@@ -13,6 +13,8 @@ async def lifespan(app: FastAPI):
     await redis_client.close()
     await engine.dispose()
 
+from app.api.v1.router import api_router
+
 app = FastAPI(
     title="FiatDex API",
     description="FiatDex — Mobile-first DEX explorer and fiat onramp on Injective",
@@ -22,6 +24,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# v1 Routes
+app.include_router(api_router, prefix="/api/v1")
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +35,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Custom Middleware
+from app.core.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
+app.add_middleware(RateLimitMiddleware, limit=60, window=60)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Exception Handlers
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import SQLAlchemyError
+from app.core.exceptions import (
+    global_exception_handler, 
+    validation_exception_handler, 
+    sqlalchemy_exception_handler,
+    FiatDexException,
+    fiatdex_exception_handler
+)
+
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+app.add_exception_handler(FiatDexException, fiatdex_exception_handler)
 
 @app.get("/health")
 async def health_check():
