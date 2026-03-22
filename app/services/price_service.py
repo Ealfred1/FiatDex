@@ -26,8 +26,16 @@ class PriceService:
         # Cache key includes search and local_currency for granularity
         cache_key = f"token_feed:{sort_by}:{search}:{target_currency}"
         cached = await redis_client.get_cache(cache_key)
+        
+        from app.schemas.token import TokenSummary
+        
         if cached:
-            # print(f"DEBUG CACHED: {cached}")
+            if isinstance(cached, dict) and "tokens" in cached:
+                return TokenFeedResponse(
+                    tokens=[TokenSummary(**t) for t in cached["tokens"]],
+                    total=int(cached["total"]),
+                    has_more=bool(cached["has_more"])
+                )
             return TokenFeedResponse.model_validate(cached)
 
         # 1. Fetch all market summaries
@@ -37,7 +45,7 @@ class PriceService:
         market_map = {m["market_id"]: m for m in spot_markets}
 
         # 3. Get forex rate
-        forex_rate = await self.get_forex_rate("USD", local_currency)
+        forex_rate = await self.get_forex_rate("USD", target_currency)
         
         tokens = []
         for s in all_summaries:
@@ -61,7 +69,7 @@ class PriceService:
                 logo_url=meta.logo_url,
                 price_usd=s.last_price,
                 price_local=float(s.last_price * Decimal(str(forex_rate))),
-                local_currency=local_currency,
+                local_currency=target_currency,
                 change_24h=s.change,
                 volume_24h_usd=s.volume,
                 market_cap_usd=None, # Injective API doesn't provide this directly

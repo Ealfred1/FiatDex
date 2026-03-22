@@ -65,7 +65,7 @@ async def get_quote(request: OnrampQuoteRequest, current_user: User = Depends(ge
     except Exception:
         # Fallback to Kado
         quote = await kado_service.get_quote(request.fiat_amount, request.fiat_currency)
-        return OnrampQuoteResponse(provider="kado", **quote)
+        return OnrampQuoteResponse(provider="kado", **quote.model_dump())
 
 @router.post(
     "/initiate",

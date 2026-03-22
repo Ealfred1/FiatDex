@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import datetime
@@ -30,11 +30,11 @@ Returns HTTP 200 if all healthy, HTTP 503 if any dependency is down.
         503: {"description": "One or more dependencies unhealthy"},
     },
 )
-async def health_check(db: AsyncSession = Depends(get_db)):
+async def health_check(response: Response, db: AsyncSession = Depends(get_db)):
     checks = {
         "database": "ok",
         "redis": "ok",
-        "injective_api": "ok"
+        "injective": "ok"
     }
     
     # 1. Check Database
@@ -45,17 +45,15 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         
     # 2. Check Redis
     try:
-        # PING is usually available via the raw client
         await redis_client.client.ping()
     except Exception:
         checks["redis"] = "error"
         
-    # 3. Check Injective API
+    # 3. Check Injective Node
     try:
-        # Simple call to verify connectivity
         await injective_service.client.get_spot_markets(status="active")
     except Exception:
-        checks["injective_api"] = "error"
+        checks["injective"] = "error"
         
     status_code = status.HTTP_200_OK
     overall_status = "healthy"
@@ -63,6 +61,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     if any(v == "error" for v in checks.values()):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         overall_status = "degraded"
+        response.status_code = status_code
         
     return HealthResponse(
         status=overall_status,

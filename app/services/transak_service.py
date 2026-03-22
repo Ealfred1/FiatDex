@@ -101,6 +101,33 @@ class TransakService:
         
         return hmac.compare_digest(expected_sig, signature)
 
+    async def process_webhook(self, data: dict, db: Any) -> None:
+        """
+        Process a webhook from Transak.
+        """
+        from app.models.transaction import Transaction
+        from sqlalchemy import select
+        from app.tasks.swap_tasks import execute_swap_task
+
+        event_id = data.get("eventID")
+        webhook_data = data.get("webhookData", {})
+        onramp_order_id = webhook_data.get("id")
+        
+        if event_id == "ORDER_COMPLETED" and webhook_data.get("status") == "COMPLETED":
+            # 1. Find transaction
+            stmt = select(Transaction).where(Transaction.onramp_order_id == onramp_order_id)
+            result = await db.execute(stmt)
+            tx = result.scalar_one_or_none()
+            
+            if tx:
+                tx.fiat_status = "completed"
+                tx.inj_amount = Decimal(str(webhook_data.get("cryptoAmount", 0)))
+                tx.onramp_tx_hash = webhook_data.get("transactionHash")
+                await db.commit()
+                
+                # 2. Trigger auto-swap task
+                execute_swap_task.delay(str(tx.id))
+
     async def process_order_completed_webhook(self, data: dict) -> TransakOrderResult:
         """
         Process a completed order webhook from Transak.
