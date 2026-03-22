@@ -1,0 +1,6 @@
+.env
+venv/
+# full .gitignore for python projects
+__pycache__/
+*.pyc
+.DS_Store
