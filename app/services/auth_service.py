@@ -186,7 +186,7 @@ class AuthService:
 
         # Update rate limit
         new_count = (int(count) + 1) if count else 1
-        await redis_client.set_cache(count_key, str(new_count), expire=3600) # 1 hour
+        await redis_client.set_cache(count_key, str(new_count), ttl=3600)
 
         await brevo_service.send_otp_email(user.email, user.full_name, otp)
         return True

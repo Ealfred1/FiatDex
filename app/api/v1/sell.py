@@ -59,7 +59,7 @@ async def get_sell_quote(
         estimated_usd_received=net_usd,
         exchange_rate=price,
         fee_usd=fee_usd,
-        expires_at=datetime.utcnow() + timedelta(seconds=30)
+        expires_at=datetime.now(timezone.utc) + timedelta(seconds=30)
     )
 
 @router.post("/execute", response_model=SellExecuteResponse)

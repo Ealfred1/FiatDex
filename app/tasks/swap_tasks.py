@@ -1,16 +1,13 @@
 from decimal import Decimal
 from uuid import UUID
 import asyncio
+from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.tasks.celery_app import celery_app
 from app.services.injective_service import injective_service
 from app.core.database import AsyncSessionLocal
 from app.models.transaction import Transaction
-
-# To avoid circular imports, we'd typically use a factory or internal imports
-# or move some logic to a more central place. 
-
 from app.models.holding import Holding
 
 @celery_app.task(
@@ -115,5 +112,3 @@ async def _update_user_holding(session, user_id, denom, symbol, amount, price_us
             holding.avg_price_usd = new_total_cost / new_amount
         holding.total_cost_usd = new_total_cost
         holding.amount = new_amount
-
-from datetime import datetime, timezone

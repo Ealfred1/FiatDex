@@ -1,7 +1,10 @@
 import httpx
+import logging
 from decimal import Decimal
 from typing import List, Dict, Any
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 class NotificationService:
     def __init__(self):
@@ -76,7 +79,6 @@ class NotificationService:
                     resp.raise_for_status()
                     # In production, we'd log delivery receipts here
             except Exception as e:
-                # Log error
-                print(f"Failed to send notifications: {str(e)}")
+                logger.error(f"Failed to send Expo push notifications: {e}")
 
 notification_service = NotificationService()

@@ -109,7 +109,7 @@ async def verify_signature(request: WalletVerifyRequest, db: AsyncSession = Depe
         await db.commit()
     
     # Update last active
-    user.last_active = datetime.utcnow()
+    user.last_active = datetime.now(timezone.utc)
     await db.commit()
     
     # Issue JWT

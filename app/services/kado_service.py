@@ -38,7 +38,7 @@ class KadoService:
                 network_fee=Decimal(data["networkFee"]),
                 service_fee=Decimal(data["serviceFee"]),
                 conversion_price=Decimal(data["conversionPrice"]),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(timezone.utc)
             )
 
     async def generate_widget_url(

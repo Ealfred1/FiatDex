@@ -61,11 +61,15 @@ class PaystackService:
         """
         Verify that the webhook request came from Paystack.
         """
-        if not settings.PAYSTACK_WEBHOOK_SECRET:
-            return True # Fallback for dev if not set
+        secret = settings.PAYSTACK_WEBHOOK_SECRET or settings.PAYSTACK_SECRET_KEY
+        if not secret or secret == "dummy":
+            return False
+        
+        if not signature:
+            return False
             
         expected_signature = hmac.new(
-            settings.PAYSTACK_WEBHOOK_SECRET.encode("utf-8"),
+            secret.encode("utf-8"),
             payload,
             hashlib.sha512
         ).hexdigest()

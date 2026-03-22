@@ -828,8 +828,17 @@ class TestPaystackService:
         from app.services.paystack_service import PaystackService
         svc = PaystackService()
         with patch("app.config.settings.PAYSTACK_WEBHOOK_SECRET", None):
-            result = svc.verify_webhook_signature(b"payload", "signature")
-            assert result is True
+            with patch("app.config.settings.PAYSTACK_SECRET_KEY", "dummy"):
+                result = svc.verify_webhook_signature(b"payload", "signature")
+                assert result is False
+
+    def test_verify_webhook_signature_empty_signature(self):
+        from app.services.paystack_service import PaystackService
+        svc = PaystackService()
+        with patch("app.config.settings.PAYSTACK_WEBHOOK_SECRET", None):
+            with patch("app.config.settings.PAYSTACK_SECRET_KEY", "dummy"):
+                result = svc.verify_webhook_signature(b"payload", "")
+                assert result is False
 
     def test_verify_webhook_signature_matching(self):
         import hmac, hashlib

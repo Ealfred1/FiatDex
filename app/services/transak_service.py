@@ -58,7 +58,7 @@ class TransakService:
                 network_fee=Decimal(str(data["networkFee"])),
                 service_fee=Decimal(str(data["transakFee"])),
                 conversion_price=Decimal(str(data["conversionPrice"])),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(timezone.utc)
             )
 
     async def generate_widget_url(
