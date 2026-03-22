@@ -16,7 +16,7 @@ from app.services.auth_service import auth_service
 from app.services.injective_service import injective_service
 from app.dependencies import get_current_user
 
-router = APIRouter(prefix="/wallet", tags=["Wallet"])
+router = APIRouter(tags=["Wallet"])
 
 @router.post(
     "/auth/nonce", 

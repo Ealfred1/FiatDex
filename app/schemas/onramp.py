@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer, ConfigDict
 from decimal import Decimal
 from typing import List, Optional, Dict
 from datetime import datetime
@@ -30,6 +30,24 @@ class OnrampSessionResponse(BaseModel):
     transaction_id: str
     widget_url: str
 
+class BuyFromBalanceRequest(BaseModel):
+    amount_usd: Decimal
+    target_denom: str
+    target_token_symbol: str
+    slippage_tolerance: float = 0.01
+
+class BuyFromBalanceResponse(BaseModel):
+    transaction_id: str
+    status: str                    # "processing", "completed", "failed"
+    estimated_amount: Decimal
+    target_symbol: str
+
+    @field_serializer('estimated_amount')
+    def serialize_decimal(self, v: Decimal, _info):
+        return str(v)
+
+    model_config = ConfigDict(from_attributes=True)
+
 class OnrampOrderResult(BaseModel):
     transaction_id: str
     onramp_status: str
@@ -51,6 +69,10 @@ class FiatOnrampQuote(BaseModel):
     conversion_price: Decimal
     expires_at: datetime
 
+    @field_serializer('fiat_amount', 'crypto_amount', 'total_fee', 'network_fee', 'service_fee', 'conversion_price')
+    def serialize_decimal(self, v: Decimal, _info):
+        return str(v)
+
 class OnrampQuote(BaseModel):
     provider: str
     fiat_amount: Decimal
@@ -62,6 +84,10 @@ class OnrampQuote(BaseModel):
     min_amount: Decimal
     max_amount: Decimal
     supported_payment_methods: List[str]
+
+    @field_serializer('fiat_amount', 'estimated_inj_amount', 'estimated_target_token_amount', 'exchange_rate', 'min_amount', 'max_amount')
+    def serialize_decimal(self, v: Decimal, _info):
+        return str(v)
 
 class OnrampSession(BaseModel):
     transaction_id: str
@@ -78,6 +104,10 @@ class TransakOrderResult(BaseModel):
     wallet_address: str
     tx_hash: Optional[str] = None
 
+    @field_serializer('fiat_amount', 'crypto_amount')
+    def serialize_decimal(self, v: Decimal, _info):
+        return str(v)
+
 class KadoOrderResult(BaseModel):
     order_id: str
     status: str
@@ -85,3 +115,7 @@ class KadoOrderResult(BaseModel):
     crypto_amount: Decimal
     wallet_address: str
     tx_hash: Optional[str] = None
+
+    @field_serializer('fiat_amount', 'crypto_amount')
+    def serialize_decimal(self, v: Decimal, _info):
+        return str(v)

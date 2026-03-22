@@ -16,13 +16,23 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Ensure all details are JSON serializable (str)
+    raw_details = exc.errors()
+    details = []
+    for d in raw_details:
+        d_copy = d.copy()
+        if "ctx" in d_copy:
+            # Flatten or stringify context which may contain non-serializable objects
+            d_copy["ctx"] = {k: str(v) for k, v in d_copy["ctx"].items()}
+        details.append(d_copy)
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Input validation failed.",
-                "details": exc.errors()
+                "details": details
             }
         }
     )

@@ -5,7 +5,7 @@ from app.services.injective_service import injective_service
 from app.schemas.token import TokenFeedResponse, TokenSummary, MarketSummary, SwapEstimate
 from app.schemas.trade import RecentTrade, Orderbook
 
-router = APIRouter(prefix="/tokens", tags=["Tokens"])
+router = APIRouter(tags=["Tokens"])
 
 @router.get(
     "",

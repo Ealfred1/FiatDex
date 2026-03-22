@@ -11,6 +11,8 @@ from app.models.transaction import Transaction
 # To avoid circular imports, we'd typically use a factory or internal imports
 # or move some logic to a more central place. 
 
+from app.models.holding import Holding
+
 @celery_app.task(
     bind=True,
     max_retries=3,
@@ -50,23 +52,13 @@ async def _execute_swap_async(
         if not tx:
             return f"Transaction {transaction_id} not found"
 
-        # 2. Verify INJ balance (poll for up to 60 seconds)
-        # In a real scenario, we'd poll Injective node
-        # await asyncio.sleep(5) # Simulation
-        
         try:
             # 3. Execute spot swap
-            # Note: We need the user's private key for automated swaps.
-            # In a non-custodial setup, the user might sign a pre-authorization or 
-            # we use a temporary session key if authorized.
-            # For this build, we'll assume a 'system' or 'user-proxy' key is managed or 
-            # we're simulating the broadcast.
-            
-            # price = await ... # Get current market price
+            # (Simulation/Placeholder logic)
             price = Decimal("1.0") # Placeholder
             
             swap_result = await injective_service.execute_spot_swap(
-                private_key="...", # Injected or managed securely
+                private_key="...", 
                 market_id=target_market_id,
                 quantity=Decimal(inj_amount),
                 price=price,
@@ -80,17 +72,48 @@ async def _execute_swap_async(
             tx.inj_amount = Decimal(inj_amount)
             tx.inj_received_at = datetime.utcnow()
             
+            # 5. Update Holdings
+            await _update_user_holding(
+                session, 
+                tx.user_id, 
+                tx.target_denom, 
+                tx.target_token_symbol, 
+                tx.swap_amount_received, 
+                price # Using execution price
+            )
+            
             await session.commit()
-            
-            # 5. Trigger notification
-            # from app.tasks.notification_tasks import send_notification_task
-            # send_notification_task.delay(tx.user_id, "swap_confirmed", ...)
-            
             return f"Swap executed for TX {transaction_id}"
             
         except Exception as e:
             tx.swap_status = "failed"
             await session.commit()
             return f"Swap failed for TX {transaction_id}: {str(e)}"
+
+async def _update_user_holding(session, user_id, denom, symbol, amount, price_usd):
+    stmt = select(Holding).where(
+        Holding.user_id == user_id,
+        Holding.token_denom == denom
+    )
+    res = await session.execute(stmt)
+    holding = res.scalar_one_or_none()
+    
+    if not holding:
+        holding = Holding(
+            user_id=user_id,
+            token_denom=denom,
+            token_symbol=symbol,
+            amount=amount,
+            avg_price_usd=price_usd,
+            total_cost_usd=amount * price_usd
+        )
+        session.add(holding)
+    else:
+        new_total_cost = holding.total_cost_usd + (amount * price_usd)
+        new_amount = holding.amount + amount
+        if new_amount > 0:
+            holding.avg_price_usd = new_total_cost / new_amount
+        holding.total_cost_usd = new_total_cost
+        holding.amount = new_amount
 
 from datetime import datetime

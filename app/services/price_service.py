@@ -31,10 +31,15 @@ class PriceService:
         
         if cached:
             if isinstance(cached, dict) and "tokens" in cached:
+                try:
+                    total = int(cached.get("total", 0))
+                except (TypeError, ValueError, AttributeError):
+                    total = 0
+                
                 return TokenFeedResponse(
                     tokens=[TokenSummary(**t) for t in cached["tokens"]],
-                    total=int(cached["total"]),
-                    has_more=bool(cached["has_more"])
+                    total=total,
+                    has_more=bool(cached.get("has_more", False))
                 )
             return TokenFeedResponse.model_validate(cached)
 

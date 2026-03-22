@@ -10,7 +10,7 @@ from app.models.watchlist import WatchlistItem
 from app.schemas.alert import AlertCreate, AlertResponse, WatchlistAddItem, WatchlistResponse
 from app.dependencies import get_current_user
 
-router = APIRouter(prefix="/alerts", tags=["Alerts"])
+router = APIRouter(tags=["Alerts"])
 
 @router.post(
     "",

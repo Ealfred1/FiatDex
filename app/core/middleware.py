@@ -17,7 +17,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # 2. Get current count from Redis
         current_count = await redis_client.get_cache(key)
-        count = int(current_count) if current_count else 0
+        try:
+            count = int(current_count) if current_count else 0
+        except (TypeError, ValueError):
+            count = 0
 
         if count >= self.limit:
             raise HTTPException(
