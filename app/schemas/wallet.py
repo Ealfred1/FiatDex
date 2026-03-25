@@ -21,8 +21,8 @@ class WalletVerifyRequest(BaseModel):
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
-    wallet_address: str
-    wallet_type: str
+    wallet_address: Optional[str] = None
+    wallet_type: Optional[str] = None
     preferred_currency: str
     is_active: bool
 
